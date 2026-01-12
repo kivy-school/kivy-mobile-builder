@@ -208,3 +208,6 @@ __marimo__/
 .DS_Store
 /testbed
 VERSIONS
+
+# SDL Android build artifacts
+/sdl_android/
