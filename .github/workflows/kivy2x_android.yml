@@ -21,13 +21,14 @@ jobs:
         run: pip install cibuildwheel
 
       - name: setup Android NDK
+        id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r27c
 
       - name: build wheels
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           mkdir -p build/wheels
           cd build
