@@ -57,7 +57,7 @@ jobs:
           python-version: '3.13.8'
 
       - name: install anaconda client
-        run: pip install "anaconda-client==1.11.3"
+        run: pip install anaconda-client
 
       - name: publish to anaconda
         env:
