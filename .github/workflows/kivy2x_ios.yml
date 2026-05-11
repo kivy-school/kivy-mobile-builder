@@ -52,9 +52,7 @@ jobs:
         run: pip install anaconda-client
 
       - name: publish to anaconda
-        env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
         run: |
           for FILE in wheels/*; do
-            anaconda upload --force "$FILE" --summary "kivy2x iOS wheel"
+            anaconda upload --force --token "${{ secrets.ANACONDA_TOKEN }}" "$FILE" --summary "kivy2x iOS wheel"
           done
