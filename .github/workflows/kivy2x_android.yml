@@ -61,6 +61,8 @@ jobs:
 
       - name: publish to anaconda
         run: |
+          anaconda login --token "${{ secrets.ANACONDA_TOKEN }}"
           for FILE in wheels/*; do
-            anaconda upload --force -t "${{ secrets.ANACONDA_TOKEN }}" "$FILE" --summary "kivy2x Android wheel"
+            anaconda upload --force "$FILE" --summary "kivy2x Android wheel"
           done
+          anaconda logout
