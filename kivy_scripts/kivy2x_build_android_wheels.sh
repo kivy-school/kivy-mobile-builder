@@ -15,5 +15,5 @@ git clone --depth 1 --branch angle https://github.com/kivy-school/kivy2x kivy2x
 cd kivy2x
 
 cibuildwheel --platform android \
-      --archs aarch64,x86_64 \
+      --archs arm64_v8a,x86_64 \
       --output-dir "$OUTPUT_DIR"
