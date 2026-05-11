@@ -54,5 +54,5 @@ jobs:
       - name: publish to anaconda
         run: |
           for FILE in wheels/*; do
-            anaconda upload --force --token "${{ secrets.ANACONDA_TOKEN }}" "$FILE" --summary "kivy2x macOS wheel"
+            anaconda upload --force -t "${{ secrets.ANACONDA_TOKEN }}" "$FILE" --summary "kivy2x macOS wheel"
           done
