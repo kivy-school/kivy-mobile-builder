@@ -1,0 +1,71 @@
+name: Build libpython Android Wheels
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.8'
+
+      - name: setup Android NDK
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
+      - name: clone ksproject
+        run: git clone --depth 1 --branch gradle_support https://github.com/kivy-school/ksproject ksproject
+
+      - name: build libpython wheels
+        env:
+          ANDROID_HOME: /Users/runner/Library/Android/sdk
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+          KIVYSCHOOL_PREBUILT_DISABLE: '1'
+        run: |
+          mkdir -p dist/libpython
+          python ksproject/scripts/build_python_target.py \
+            --ndk "$ANDROID_NDK_ROOT" \
+            --out-dir dist/libpython
+
+      - run: find dist/libpython -name "*.whl"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libpython-android-wheels
+          path: dist/libpython/**/*.whl
+
+  anaconda_upload:
+    name: Upload to Anaconda
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: libpython-android-wheels
+          path: wheels/
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.8'
+
+      - name: install anaconda client
+        run: pip install anaconda-client
+
+      - name: publish to anaconda
+        env:
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+        run: |
+          find wheels -name "*.whl" | while read FILE; do
+            anaconda upload --force "$FILE" --summary "libpython Android wheel"
+          done
