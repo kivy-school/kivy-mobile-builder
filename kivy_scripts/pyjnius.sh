@@ -13,6 +13,13 @@ KIVY_VERSION="${KIVY_VERSION:-2.3.1}"
 
 git clone --depth 1 https://github.com/kivy/pyjnius pyjnius
 
+# Patch: pyjnius setup.py converts .pyx -> .c for android (old pre-Cython workaround).
+# cibuildwheel runs Cython itself, so the .c files don't exist. Comment out both lines.
+sed -i '' \
+    -e "s/^if PLATFORM == 'android':$/# if PLATFORM == 'android':/" \
+    -e "s/^    PYX_FILES = \[fn\[:-3\] + 'c' for fn in PYX_FILES\]$/    # PYX_FILES = [fn[:-3] + 'c' for fn in PYX_FILES]/" \
+    pyjnius/setup.py
+
 build_for() {
       ARCH=$1            # cibuildwheel android arch token: arm64_v8a | x86_64
       PLAT_TAG=$2        # pip platform tag: android_24_arm64_v8a | android_24_x86_64
