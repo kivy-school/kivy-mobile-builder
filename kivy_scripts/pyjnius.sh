@@ -50,7 +50,10 @@ build_for() {
       # LDFLAGS in CIBW_ENVIRONMENT_ANDROID is ignored by the NDK cross-compile toolchain;
       # copying into sys.prefix/lib works because that -L path is always in the link command.
       # $SDL2_SO is expanded to the real host path at export time.
-      export CIBW_BEFORE_BUILD_ANDROID="python -c \"import sys, shutil; shutil.copy('$SDL2_SO', sys.base_prefix + '/lib/libSDL2.so')\""
+      # CMAKE_TOOLCHAIN_FILE=.../cibw-run-<id>/cp313-android_<arch>/toolchain.cmake
+      # Cross-Python lib dir is dirname(CMAKE_TOOLCHAIN_FILE)/python/prefix/lib —
+      # exactly the -L path the NDK linker already has.
+      export CIBW_BEFORE_BUILD_ANDROID="python -c \"import os, shutil; lib=os.path.join(os.path.dirname(os.environ['CMAKE_TOOLCHAIN_FILE']), 'python', 'prefix', 'lib'); shutil.copy('$SDL2_SO', os.path.join(lib, 'libSDL2.so'))\""
 
       # pyjnius setup.py switches to android mode when NDKPLATFORM + LIBLINK are set.
       # PIP_EXTRA_INDEX_URL lets cibuildwheel's pip resolve kivy 2.3.1 from anaconda.org/kivyschool.
