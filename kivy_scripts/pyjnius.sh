@@ -46,11 +46,15 @@ build_for() {
       fi
       SDL2_LIB_DIR="$(dirname "$SDL2_SO")"
 
+      # Copy libSDL2.so into the cibuildwheel Python prefix/lib so the NDK linker finds -lSDL2.
+      # LDFLAGS in CIBW_ENVIRONMENT_ANDROID is ignored by the NDK cross-compile toolchain;
+      # copying into sys.prefix/lib works because that -L path is always in the link command.
+      # $SDL2_SO is expanded to the real host path at export time.
+      export CIBW_BEFORE_BUILD_ANDROID="python -c \"import sys, shutil; shutil.copy('$SDL2_SO', sys.prefix + '/lib/libSDL2.so')\""
+
       # pyjnius setup.py switches to android mode when NDKPLATFORM + LIBLINK are set.
-      # AndroidJavaLocation.get_libraries() returns ['SDL2', 'log'] so we need -L<sdl2 dir>.
-      # PIP_EXTRA_INDEX_URL is injected so cibuildwheel's pip can resolve kivy 2.3.1
-      # android wheels from anaconda.org/kivyschool inside the build sandbox.
-      export CIBW_ENVIRONMENT_ANDROID="NDKPLATFORM=android LIBLINK=1 LDFLAGS=\"-L$SDL2_LIB_DIR\" PIP_EXTRA_INDEX_URL=\"$KIVY_INDEX\""
+      # PIP_EXTRA_INDEX_URL lets cibuildwheel's pip resolve kivy 2.3.1 from anaconda.org/kivyschool.
+      export CIBW_ENVIRONMENT_ANDROID="NDKPLATFORM=android LIBLINK=1 PIP_EXTRA_INDEX_URL=\"$KIVY_INDEX\""
 
       cibuildwheel pyjnius \
             --platform android \
