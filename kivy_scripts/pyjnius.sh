@@ -68,6 +68,13 @@ if _have_wheel:
 """
 
 content = content.replace(
+    "SETUP_KWARGS['py_modules'].remove('setup')",
+    "SETUP_KWARGS['py_modules'].remove('setup')\n"
+    "if PLATFORM == 'android':\n"
+    "    SETUP_KWARGS.setdefault('package_data', {}).pop('jnius', None)"
+)
+
+content = content.replace(
     "# create the extension\nsetup(",
     _cls + "# create the extension\nsetup("
 )
