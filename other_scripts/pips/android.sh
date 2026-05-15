@@ -11,8 +11,8 @@ OUTPUT_DIR="$ROOT/wheels"
 
 git clone --depth 1 https://github.com/kivy-school/android android-pkg
 
-# All cibuildwheel config (archs, before-build, environment) lives in
-# android-pkg/pyproject.toml — no CIBW_* overrides needed here.
+# All build logic (config.pxi generation, SDL lib harvesting, Cython compile)
+# lives in android-pkg/setup.py — no CIBW_* overrides needed.
 cibuildwheel android-pkg \
     --platform android \
     --output-dir "$OUTPUT_DIR"

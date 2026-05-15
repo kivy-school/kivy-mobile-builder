@@ -211,3 +211,4 @@ VERSIONS
 
 # SDL Android build artifacts
 /sdl_android/
+android/
