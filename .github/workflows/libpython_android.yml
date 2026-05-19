@@ -37,6 +37,45 @@ jobs:
             --ndk "$ANDROID_NDK_ROOT" \
             --out-dir dist/libpython
 
+      - name: inject SSL libs into wheels
+        run: |
+          python3 - <<'PYEOF'
+          import zipfile, re
+          from pathlib import Path
+
+          work_dir = Path("ksproject/.build-target")
+          wheel_dir = Path("dist/libpython")
+          abi_map = {"arm64_v8a": "arm64-v8a", "x86_64": "x86_64"}
+
+          for whl_path in sorted(wheel_dir.rglob("*.whl")):
+              m = re.search(r"android_\d+_(\w+)$", whl_path.stem)
+              if not m:
+                  continue
+              abi_tag = m.group(1)
+              abi = abi_map.get(abi_tag, abi_tag)
+
+              ssl_so  = next(work_dir.rglob(f"*{abi}*/lib/libssl_python.so"), None)
+              cryp_so = next(work_dir.rglob(f"*{abi}*/lib/libcrypto_python.so"), None)
+              extra   = [p for p in (ssl_so, cryp_so) if p]
+
+              if not extra:
+                  print(f"WARNING: no SSL .so found for {abi}, skipping")
+                  continue
+
+              print(f"Patching {whl_path.name}: adding {[p.name for p in extra]}")
+              tmp = whl_path.with_name(whl_path.name + ".tmp")
+              with zipfile.ZipFile(whl_path, "r") as zin, \
+                   zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zout:
+                  for item in zin.infolist():
+                      zout.writestr(item, zin.read(item.filename))
+                  for lib in extra:
+                      arcname = f"libpython/prefix/{abi}/lib/{lib.name}"
+                      print(f"  + {arcname}")
+                      zout.write(str(lib), arcname)
+              whl_path.unlink()
+              tmp.rename(whl_path)
+          PYEOF
+
       - run: find dist/libpython -name "*.whl"
 
       - uses: actions/upload-artifact@v4
