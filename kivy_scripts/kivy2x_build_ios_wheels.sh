@@ -10,5 +10,5 @@ git clone --depth 1 --branch master https://github.com/kivy-school/kivy2x kivy2x
 cd kivy2x
 
 cibuildwheel --platform ios \
-      --archs arm64_iphoneos,arm64_iphonesimulator,x86_64_iphonesimulator \
+      --archs all \
       --output-dir "$OUTPUT_DIR"

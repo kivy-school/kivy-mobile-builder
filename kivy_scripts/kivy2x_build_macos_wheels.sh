@@ -10,5 +10,5 @@ git clone --depth 1 --branch master https://github.com/kivy-school/kivy2x kivy2x
 cd kivy2x
 
 cibuildwheel --platform macos \
-      --archs arm64,x86_64 \
+      --archs all \
       --output-dir "$OUTPUT_DIR"
