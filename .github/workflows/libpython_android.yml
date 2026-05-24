@@ -10,9 +10,6 @@ jobs:
     permissions:
       contents: write
 
-    env:
-      ANDROID_HOME: /Users/runner/Library/Android/sdk
-
     steps:
       - uses: actions/checkout@v5
 
@@ -20,167 +17,25 @@ jobs:
         with:
           python-version: '3.13.8'
 
-      - name: setup Android NDK r28c
+      - name: setup Android NDK
         id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: r28c
+          ndk-version: r27c
 
-      - name: clone CPython 3.13.8
-        run: git clone --depth 1 --branch v3.13.8 https://github.com/python/cpython cpython
+      - name: clone ksproject
+        run: git clone --depth 1 --branch gradle_support https://github.com/kivy-school/ksproject ksproject
 
-      - name: wire NDK r28c into CPython android-env.sh
+      - name: build libpython wheels
+        env:
+          ANDROID_HOME: /Users/runner/Library/Android/sdk
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+          KIVYSCHOOL_PREBUILT_DISABLE: '1'
         run: |
-          NDK_PATH="${{ steps.setup-ndk.outputs.ndk-path }}"
-          NDK_VERSION=$(grep "Pkg.Revision" "$NDK_PATH/source.properties" | cut -d= -f2 | tr -d ' ')
-          mkdir -p "$ANDROID_HOME/ndk"
-          ln -sfn "$NDK_PATH" "$ANDROID_HOME/ndk/$NDK_VERSION"
-          sed -i '' "s/^ndk_version=.*/ndk_version=$NDK_VERSION/" cpython/Android/android-env.sh
-          echo "NDK version: $NDK_VERSION"
-
-      - name: build host Python
-        working-directory: cpython
-        run: |
-          python Android/android.py configure-build
-          python Android/android.py make-build
-
-      - name: build for aarch64-linux-android
-        working-directory: cpython
-        run: |
-          python Android/android.py configure-host aarch64-linux-android
-          python Android/android.py make-host aarch64-linux-android
-
-      - name: build for x86_64-linux-android
-        working-directory: cpython
-        run: |
-          python Android/android.py configure-host x86_64-linux-android
-          python Android/android.py make-host x86_64-linux-android
-
-      - name: package wheels
-        run: |
-          python3 - <<'PYEOF'
-          import base64, csv, hashlib, io, zipfile
-          from pathlib import Path
-
-          PYTHON_VERSION = '3.13.8'
-          ANDROID_API    = 21
-          PY_MINOR       = '3.13'
-          DIST_NAME      = 'libpython'
-          STDLIB_EXCLUDE = {
-              'lib-dynload', 'site-packages', 'test', 'tests',
-              'idlelib', 'tkinter', 'turtledemo', 'ensurepip',
-              '__pycache__', 'config-3.13', 'config-3.13t',
-          }
-          HOST_TO_ABI = {
-              'aarch64-linux-android': 'arm64-v8a',
-              'x86_64-linux-android':  'x86_64',
-          }
-
-          def sha256_b64(data):
-              d = hashlib.sha256(data).digest()
-              return 'sha256=' + base64.urlsafe_b64encode(d).rstrip(b'=').decode()
-
-          def platform_tag(api, abi):
-              return f'android_{api}_{abi.replace("-", "_")}'
-
-          def collect_stdlib(stdlib_root):
-              out = []
-              for p in stdlib_root.rglob('*'):
-                  if not p.is_file():
-                      continue
-                  rel = p.relative_to(stdlib_root)
-                  if any(part in STDLIB_EXCLUDE for part in rel.parts):
-                      continue
-                  if p.suffix in ('.pyc', '.so'):
-                      continue
-                  out.append(p)
-              return out
-
-          out_dir = Path('dist/libpython') / f'{PYTHON_VERSION}-0'
-          out_dir.mkdir(parents=True, exist_ok=True)
-
-          for host, abi in HOST_TO_ABI.items():
-              prefix = Path('cpython') / 'cross-build' / host / 'prefix'
-              tag = platform_tag(ANDROID_API, abi)
-              whl_path = out_dir / f'{DIST_NAME}-{PYTHON_VERSION}-0-py3-none-{tag}.whl'
-              entries = []
-
-              # libpython main shared lib
-              libpy = prefix / 'lib' / f'libpython{PY_MINOR}.so'
-              entries.append((libpy, f'libpython/prefix/{abi}/lib/{libpy.name}'))
-
-              # all other shared libs: libssl_python.so, libcrypto_python.so, etc.
-              seen_arcs = set()
-              for so in sorted((prefix / 'lib').glob('lib*.so')):
-                  if so.name.startswith('libpython'):
-                      continue
-                  arcname = f'libpython/prefix/{abi}/lib/{so.name}'
-                  if arcname in seen_arcs:
-                      continue
-                  seen_arcs.add(arcname)
-                  real = so.resolve() if so.is_symlink() else so
-                  entries.append((real, arcname))
-
-              # lib-dynload extension modules
-              dynload = prefix / 'lib' / f'python{PY_MINOR}' / 'lib-dynload'
-              for so in sorted(dynload.glob('*.so')):
-                  entries.append((so, f'libpython/prefix/{abi}/lib/python{PY_MINOR}/lib-dynload/{so.name}'))
-
-              # per-ABI headers (pyconfig.h etc.)
-              inc_root = prefix / 'include' / f'python{PY_MINOR}'
-              if inc_root.exists():
-                  for src in sorted(inc_root.rglob('*')):
-                      if src.is_file():
-                          rel = src.relative_to(inc_root)
-                          entries.append((src, f'libpython/prefix/{abi}/include/python{PY_MINOR}/{rel.as_posix()}'))
-
-              # pure-Python stdlib
-              stdlib_root = prefix / 'lib' / f'python{PY_MINOR}'
-              for src in collect_stdlib(stdlib_root):
-                  rel = src.relative_to(stdlib_root)
-                  entries.append((src, f'libpython/stdlib/python{PY_MINOR}/{rel.as_posix()}'))
-
-              dist_info = f'{DIST_NAME}-{PYTHON_VERSION}.dist-info'
-              metadata = (
-                  f'Metadata-Version: 2.1\n'
-                  f'Name: {DIST_NAME}\n'
-                  f'Version: {PYTHON_VERSION}\n'
-                  f'Summary: CPython {PYTHON_VERSION} runtime for Android ({abi}), incl. stdlib & lib-dynload.\n'
-                  f'Home-page: https://anaconda.org/kivyschool\n'
-                  f'License: PSF-2.0\n'
-                  f'Platform: Android\n'
-                  f'Requires-Python: =={PY_MINOR}.*\n'
-              ).encode()
-              wheel_meta = (
-                  f'Wheel-Version: 1.0\n'
-                  f'Generator: kivy-mobile-builder libpython_android.yml\n'
-                  f'Root-Is-Purelib: false\n'
-                  f'Tag: py3-none-{tag}\n'
-                  f'Build: 0\n'
-              ).encode()
-
-              record_rows = []
-              with zipfile.ZipFile(whl_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-                  for src, arc in entries:
-                      data = Path(src).read_bytes()
-                      zf.writestr(arc, data)
-                      record_rows.append((arc, sha256_b64(data), len(data)))
-                  def add_dist(name, data):
-                      arc = f'{dist_info}/{name}'
-                      zf.writestr(arc, data)
-                      record_rows.append((arc, sha256_b64(data), len(data)))
-                  add_dist('METADATA', metadata)
-                  add_dist('WHEEL', wheel_meta)
-                  buf = io.StringIO()
-                  w = csv.writer(buf, lineterminator='\n')
-                  for row in record_rows:
-                      w.writerow(row)
-                  w.writerow([f'{dist_info}/RECORD', '', ''])
-                  zf.writestr(f'{dist_info}/RECORD', buf.getvalue())
-
-              size_mb = whl_path.stat().st_size / 1024 / 1024
-              print(f'Wrote {whl_path.name} ({size_mb:.2f} MB)')
-          PYEOF
+          mkdir -p dist/libpython
+          python ksproject/scripts/build_python_target.py \
+            --ndk "$ANDROID_NDK_ROOT" \
+            --out-dir dist/libpython
 
       - run: find dist/libpython -name "*.whl"
 

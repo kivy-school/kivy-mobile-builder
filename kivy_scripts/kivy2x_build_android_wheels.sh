@@ -9,8 +9,8 @@ fi
 ROOT="${PWD}"
 OUTPUT_DIR="$ROOT/wheels"
 
-# Clone kivy2x (angle branch) — it builds SDL2 itself via tools/build_android_dependencies.sh
-git clone --depth 1 --branch angle https://github.com/kivy-school/kivy2x kivy2x
+# Clone kivy2x (master branch) — it builds SDL2 itself via tools/build_android_dependencies.sh
+git clone --depth 1 --branch master https://github.com/kivy-school/kivy2x kivy2x
 
 cd kivy2x
 
