@@ -24,7 +24,7 @@ jobs:
           ndk-version: r27c
 
       - name: clone ksproject
-        run: git clone --depth 1 --branch gradle_support https://github.com/kivy-school/ksproject ksproject
+        run: git clone --depth 1 --branch bootstraps https://github.com/kivy-school/ksproject ksproject
 
       - name: build libpython wheels
         env:
