@@ -2,6 +2,14 @@ name: Build libpython Android Wheels
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "CPython version to build (e.g. 3.14.2); empty for the ksproject default"
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'libpython-*'   # e.g. libpython-3.14.2
 
 jobs:
   build:
@@ -26,6 +34,16 @@ jobs:
       - name: clone ksproject
         run: git clone --depth 1 --branch bootstraps https://github.com/kivy-school/ksproject ksproject
 
+      - name: resolve version
+        id: ver
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ] && [[ "$GITHUB_REF_NAME" == libpython-* ]]; then
+            VERSION="${GITHUB_REF_NAME#libpython-}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "building CPython ${VERSION:-<ksproject default>}"
+
       - name: build libpython wheels
         env:
           ANDROID_HOME: /Users/runner/Library/Android/sdk
@@ -33,7 +51,7 @@ jobs:
           KIVYSCHOOL_PREBUILT_DISABLE: '1'
         run: |
           mkdir -p dist/libpython
-          python ksproject/scripts/build_python_target.py \
+          python ksproject/scripts/build_python_target.py ${{ steps.ver.outputs.version }} \
             --ndk "$ANDROID_NDK_ROOT" \
             --out-dir dist/libpython
 
