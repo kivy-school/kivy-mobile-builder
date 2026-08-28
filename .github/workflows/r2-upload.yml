@@ -1,0 +1,72 @@
+name: Upload to R2
+
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: "Name of the build artifact holding the wheels"
+        required: true
+        type: string
+      bucket:
+        description: "R2 bucket to upload into"
+        required: false
+        type: string
+        default: kivyschool-pypi
+      prefix:
+        description: "Key prefix inside the bucket"
+        required: false
+        type: string
+        default: packages
+    secrets:
+      R2_ACCOUNT_ID:
+        required: true
+      R2_ACCESS_KEY_ID:
+        required: true
+      R2_SECRET_ACCESS_KEY:
+        required: true
+
+jobs:
+  r2_upload:
+    name: Upload to R2
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: wheels
+
+      - run: find wheels -name '*.whl'
+
+      - name: upload wheels to r2
+        env:
+          # The aws CLI reads credentials from the environment, so nothing
+          # secret ends up on a command line or in the step log.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          BUCKET: ${{ inputs.bucket }}
+          PREFIX: ${{ inputs.prefix }}
+          ARTIFACT: ${{ inputs.artifact }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          # Artifacts keep the producer's directory layout (libpython nests its
+          # wheels under dist/libpython/<version>-<rev>/), so recurse and
+          # flatten onto the index prefix.
+          COUNT=0
+          while IFS= read -r -d '' FILE; do
+            BASENAME=$(basename "$FILE")
+            echo "Uploading $BASENAME"
+            aws s3 cp "$FILE" "s3://${BUCKET}/${PREFIX}/${BASENAME}" \
+              --endpoint-url "$ENDPOINT"
+            COUNT=$((COUNT + 1))
+          done < <(find wheels -name '*.whl' -print0)
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::no .whl files found in artifact '${ARTIFACT}'"
+            exit 1
+          fi
+          echo "uploaded $COUNT wheel(s) to s3://${BUCKET}/${PREFIX}/"

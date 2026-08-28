@@ -33,28 +33,13 @@ jobs:
           name: kivy2x-ios-wheels
           path: build/wheels/
 
-  anaconda_upload:
-    name: Upload to Anaconda
+  r2_upload:
+    name: Upload to R2
     needs: [build]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: kivy2x-ios-wheels
-          path: wheels/
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13.8'
-
-      - name: install anaconda client
-        run: pip install anaconda-client
-
-      - name: publish to anaconda
-        env:
-          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
-        run: |
-          for FILE in wheels/*; do
-            anaconda upload --force "$FILE" --summary "kivy2x iOS wheel"
-          done
+    uses: ./.github/workflows/r2-upload.yml
+    with:
+      artifact: kivy2x-ios-wheels
+    secrets:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
