@@ -212,3 +212,6 @@ VERSIONS
 # SDL Android build artifacts
 /sdl_android/
 android/
+
+# libpython cross-build scratch dir (other_scripts/libpython)
+/.build-target/

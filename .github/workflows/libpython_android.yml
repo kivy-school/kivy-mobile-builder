@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "CPython version to build (e.g. 3.14.2); empty for the ksproject default"
+        description: "CPython version to build (e.g. 3.14.2); empty for the script default"
         required: false
         default: ''
+      api_level:
+        description: "Android API level to compile against and tag the wheel with"
+        required: false
+        default: '24'
   push:
     tags:
       - 'libpython-*'   # e.g. libpython-3.14.2
@@ -31,9 +35,6 @@ jobs:
         with:
           ndk-version: r27c
 
-      - name: clone ksproject
-        run: git clone --depth 1 --branch bootstraps https://github.com/kivy-school/ksproject ksproject
-
       - name: resolve version
         id: ver
         run: |
@@ -42,17 +43,19 @@ jobs:
             VERSION="${GITHUB_REF_NAME#libpython-}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "building CPython ${VERSION:-<ksproject default>}"
+          echo "building CPython ${VERSION:-<script default>}"
 
       - name: build libpython wheels
         env:
           ANDROID_HOME: /Users/runner/Library/Android/sdk
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
           KIVYSCHOOL_PREBUILT_DISABLE: '1'
+          API_LEVEL: ${{ inputs.api_level || '24' }}
         run: |
           mkdir -p dist/libpython
-          python ksproject/scripts/build_python_target.py ${{ steps.ver.outputs.version }} \
+          python other_scripts/libpython/build_python_target.py ${{ steps.ver.outputs.version }} \
             --ndk "$ANDROID_NDK_ROOT" \
+            --api "$API_LEVEL" \
             --out-dir dist/libpython
 
       - run: find dist/libpython -name "*.whl"
