@@ -11,12 +11,26 @@ OUTPUT_DIR="$ROOT/wheels"
 
 git clone --depth 1 https://github.com/kivy/pyjnius pyjnius
 
-# Patch: pyjnius setup.py converts .pyx -> .c for android (old pre-Cython workaround).
-# cibuildwheel runs Cython itself, so the .c files don't exist. Comment out both lines.
-sed -i '' \
-    -e "s/^if PLATFORM == 'android':$/# if PLATFORM == 'android':/" \
-    -e "s/^    PYX_FILES = \[fn\[:-3\] + 'c' for fn in PYX_FILES\]$/    # PYX_FILES = [fn[:-3] + 'c' for fn in PYX_FILES]/" \
-    pyjnius/setup.py
+# Patch: pyjnius setup.py converts .pyx -> .c for android (old pre-Cython
+# workaround). cibuildwheel runs Cython itself, so the .c files don't exist.
+# Comment out the whole block.
+#
+# setup.py has a second, unrelated "if PLATFORM == 'android':" (the package_data
+# prune that keeps org.jnius out of the android wheel), so match the two lines
+# as a unit rather than by line pattern — commenting out that other guard while
+# leaving its indented body behind is an IndentationError.
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("pyjnius/setup.py")
+src = path.read_text()
+old = "if PLATFORM == 'android':\n    PYX_FILES = [fn[:-3] + 'c' for fn in PYX_FILES]\n"
+new = "# if PLATFORM == 'android':\n#     PYX_FILES = [fn[:-3] + 'c' for fn in PYX_FILES]\n"
+if old not in src:
+    raise SystemExit("pyjnius setup.py: pyx->c block not found; upstream changed")
+path.write_text(src.replace(old, new, 1))
+print("patched pyjnius/setup.py")
+PY
 
 cibuildwheel pyjnius \
       --platform android \
