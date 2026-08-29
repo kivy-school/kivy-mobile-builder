@@ -17,8 +17,12 @@ jobs:
         with:
           python-version: '3.13.8'
 
+      # pyjnius pins cibuildwheel in its pyproject.toml: it has no NDK-version
+      # key, so the NDK is a function of the cibuildwheel version (4.1.0 ->
+      # NDK 27.3.13750724). Unpinned installs whatever is current and silently
+      # changes the toolchain that produced the wheel.
       - name: install cibuildwheel
-        run: pip install cibuildwheel
+        run: pip install 'cibuildwheel==4.1.0'
 
       # No NDK step: cibuildwheel resolves the NDK from ANDROID_HOME itself
       # (the last run compiled with .../Android/sdk/ndk/27.3.13750724, not the
