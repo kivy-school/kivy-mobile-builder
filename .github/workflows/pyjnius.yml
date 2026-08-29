@@ -28,6 +28,7 @@ jobs:
 
       - name: build wheels
         env:
+          ANDROID_HOME: /Users/runner/Library/Android/sdk
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           mkdir -p build/wheels
